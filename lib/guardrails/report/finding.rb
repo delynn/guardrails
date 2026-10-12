@@ -43,8 +43,18 @@ module Guardrails
         {
           category: category, severity: severity, title: title, suggestion: suggestion,
           locations: locations.map(&:to_h), snippet: snippet,
-          details: details.to_h, auto_fix: auto_fix || false
+          details: details_hash, auto_fix: auto_fix || false
         }
+      end
+
+      # `details` allows a label more than once (two screenshots, several
+      # regions). A plain `to_h` kept only the last value; a repeated
+      # label collects its values into an array instead. Labels that
+      # appear once stay scalars, so existing JSON doesn't change.
+      def details_hash
+        details.each_with_object({}) do |(label, value), hash|
+          hash[label] = hash.key?(label) ? Array(hash[label]) << value : value
+        end
       end
     end
 

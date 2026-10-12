@@ -62,17 +62,17 @@ RSpec.describe Guardrails::Configuration do
       expect(vd.adapter).to eq(:snap_diff)
     end
 
-    it "rejects :backstop until its adapter ships (issue #15)" do
-      expect { vd.adapter = :backstop }.to raise_error(ArgumentError, /Unknown visual_diff adapter :backstop/)
-    end
-
     it "coerces a string to a symbol" do
       vd.adapter = "snap_diff"
       expect(vd.adapter).to eq(:snap_diff)
     end
 
-    it "rejects unknown adapters with a helpful error" do
-      expect { vd.adapter = :percy }.to raise_error(ArgumentError, /Unknown visual_diff adapter :percy/)
+    # An adapter from another gem may register after the host's
+    # initializer sets the name, so registration is checked when the
+    # adapter is built (see VisualDiff "unknown adapters").
+    it "accepts a name that isn't registered yet" do
+      vd.adapter = :browser
+      expect(vd.adapter).to eq(:browser)
     end
 
     it "rejects nil with a clear ArgumentError (not NoMethodError on to_sym)" do

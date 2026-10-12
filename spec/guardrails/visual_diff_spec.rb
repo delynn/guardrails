@@ -138,22 +138,68 @@ RSpec.describe Guardrails::VisualDiff do
   end
 
   describe "unknown adapters" do
-    it "raises with a clear message when the configured adapter isn't recognized internally" do
-      # Bypass Configuration#adapter= validation by passing through the
-      # constructor; this guards the dispatch path in case the gem ever
-      # registers an adapter without implementing its branch.
-      audit = described_class.new(root: root, output: output, adapter: :not_yet_implemented)
-      expect { audit.collect }.to raise_error(ArgumentError, /Unknown visual_diff adapter/)
+    it "raises naming the registered adapters when the configured one isn't registered" do
+      Guardrails.configure { |c| c.visual_diff.adapter = :backstop }
+      audit = described_class.new(root: root, output: output)
+
+      expect { audit.collect }
+        .to raise_error(ArgumentError, "Unknown visual_diff adapter: :backstop; registered: [:snap_diff]")
     end
 
-    # Configuration and dispatch must agree: every adapter the setter
-    # accepts has to be buildable here. `:backstop` was listed in
-    # KNOWN_ADAPTERS without a branch and raised only at audit time.
-    Guardrails::Configuration::VisualDiffConfig::KNOWN_ADAPTERS.each do |name|
-      it "can build every adapter Configuration accepts (#{name})" do
-        audit = described_class.new(root: root, output: output, adapter: name)
-        expect { audit.collect }.not_to raise_error
+    it "registers snap_diff by default" do
+      expect(described_class.adapters).to eq([:snap_diff])
+    end
+  end
+
+  describe ".register_adapter" do
+    # Registration is process-wide; put the registry back afterwards.
+    around do |example|
+      saved = described_class.instance_variable_get(:@adapters).dup
+      example.run
+    ensure
+      described_class.instance_variable_set(:@adapters, saved)
+    end
+
+    let(:fake_adapter) do
+      Class.new do
+        def initialize(findings) = @findings = findings
+        def collect = @findings
       end
+    end
+
+    it "builds a registered adapter with the root and the visual_diff config" do
+      received = nil
+      described_class.register_adapter(:fake) do |root:, config:|
+        received = [root, config]
+        fake_adapter.new([])
+      end
+
+      described_class.new(root: root, output: output, adapter: :fake).collect
+
+      expect(received).to eq([root, Guardrails.configuration.visual_diff])
+      expect(described_class.adapters).to include(:fake)
+    end
+
+    it "requires a block" do
+      expect { described_class.register_adapter(:fake) }.to raise_error(ArgumentError, /needs a block/)
+    end
+
+    it "carries an adapter's status, comment, regions and extra details into the report" do
+      finding = described_class::Finding.new(
+        scenario: "/pricing@desktop+light", mismatch_ratio: nil, status: "changed",
+        comment: "Footer wraps at 390px", regions: [{ x: 16, y: 212, w: 358, h: 44 }, { "x" => 0, "y" => 0, "w" => 8, "h" => 8 }],
+        baseline_path: "spec/visual/baselines/pricing/desktop+light.png",
+        extra_details: [["mismatch", "3.1%"]]
+      )
+      described_class.register_adapter(:fake) { |root:, config:| fake_adapter.new([finding]) }
+      audit = described_class.new(root: root, output: output, adapter: :fake)
+
+      report = audit.categories(audit.collect).first.findings.first
+
+      expect(report.title).to eq("[changed] /pricing@desktop+light")
+      expect(report.details).to include(["status", "changed"], ["comment", "Footer wraps at 390px"],
+                                        ["regions", "16,212 358x44; 0,0 8x8"], ["mismatch", "3.1%"])
+      expect(audit.any_failing?([finding])).to be true
     end
   end
 
