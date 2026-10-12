@@ -44,7 +44,7 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -89,7 +89,7 @@ jobs:
       # 25679243892 and 25679904207). The direct approach avoids
       # bundler entirely on the push path.
       - name: Configure RubyGems trusted-publisher credentials
-        uses: rubygems/configure-rubygems-credentials@762a4b77c3300434bb57c7ce80b20e36231927aa # v2.0.0
+        uses: rubygems/configure-rubygems-credentials@dc5a8d8553e6ee01fc26761a49e99e733d17954a # v2.1.0
 
       # Gemspec + .gem use wildcard patterns so a future rename
       # doesn't need a workflow change too. There's only ever one of
