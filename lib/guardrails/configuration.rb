@@ -44,10 +44,6 @@ module Guardrails
       DEFAULT_ADAPTER       = :snap_diff
       DEFAULT_SNAP_DIFF_DIR = "doc/screenshots"
       DEFAULT_THRESHOLD     = 0.0 # any non-zero mismatch fails
-      # Only adapters `VisualDiff#adapter` can actually build. `:backstop`
-      # joins when its adapter ships (issue #15); listing it early let
-      # `adapter = :backstop` pass here and then raise at audit time.
-      KNOWN_ADAPTERS        = %i[snap_diff].freeze
 
       # `backstop_json` is reserved for the BackstopJS adapter and unused
       # until it lands; kept so initializers that already set it still load.
@@ -61,16 +57,14 @@ module Guardrails
         @threshold     = DEFAULT_THRESHOLD
       end
 
+      # Whether the name is a registered adapter is checked when the
+      # adapter is built (VisualDiff#adapter), not here: an adapter from
+      # another gem may register after this initializer runs.
       def adapter=(value)
         raise ArgumentError, "visual_diff.adapter cannot be nil" if value.nil?
         raise ArgumentError, "visual_diff.adapter cannot be blank" if value.respond_to?(:strip) && value.strip.empty?
 
-        sym = value.to_sym
-        unless KNOWN_ADAPTERS.include?(sym)
-          raise ArgumentError,
-                "Unknown visual_diff adapter #{value.inspect}; expected one of #{KNOWN_ADAPTERS.inspect}"
-        end
-        @adapter = sym
+        @adapter = value.to_sym
       end
 
       def threshold=(value)

@@ -14,7 +14,9 @@ module Guardrails
   #
   # Adapter selection comes from `Guardrails.configuration.visual_diff.adapter`
   # (default `:snap_diff`, the Rails-native baselines-in-git workflow).
-  # BackstopJS support tracked in issue #15.
+  # Other gems add adapters with `VisualDiff.register_adapter`; the
+  # ui_guardrails-browser gem registers `:browser`. BackstopJS support
+  # tracked in issue #15.
   class VisualDiff
     # Normalized across every adapter. Fields adapter-specific shapes
     # don't supply are nil — consumers should not assume presence.
@@ -30,10 +32,42 @@ module Guardrails
       :diff_path,       # relative path to the diff image, nil when no diff exists
       :url,             # optional — set by adapters whose scenarios carry URLs (BackstopJS)
       :selector,        # optional — same
+      :status,          # optional — adapter's review state, e.g. "changed", "new", "rejected"
+      :comment,         # optional — a reviewer's note on the change
+      :regions,         # optional — changed areas, [{ x:, y:, w:, h: }, ...]
+      :extra_details,   # optional — more [label, value] pairs for the report
       keyword_init: true
     ) do
       def to_h
         super
+      end
+    end
+
+    @adapters = {}
+
+    class << self
+      # Adds an adapter under `name`. The block builds it:
+      #
+      #     Guardrails::VisualDiff.register_adapter(:browser) do |root:, config:|
+      #       MyAdapter.new(root: root)
+      #     end
+      #
+      # `config` is `Guardrails.configuration.visual_diff`. The adapter's
+      # `#collect` returns `VisualDiff::Finding`s; a finding with
+      # `mismatch_ratio: nil` always fails, one with a ratio fails above
+      # the threshold.
+      def register_adapter(name, &factory)
+        raise ArgumentError, "register_adapter needs a block that builds the adapter" unless factory
+
+        @adapters[name.to_sym] = factory
+      end
+
+      def adapters
+        @adapters.keys
+      end
+
+      def adapter_factory(name)
+        @adapters[name]
       end
     end
 
@@ -82,8 +116,7 @@ module Guardrails
             title: "#{ratio_label(f)} #{f.scenario}#{f.viewport ? " (#{f.viewport})" : ""}",
             suggestion: SUGGESTION,
             locations: [f.diff_path, f.baseline_path].compact.map { |path| Report::Location.new(file: path) },
-            details: [["baseline", f.baseline_path], ["diff", f.diff_path], ["url", f.url], ["selector", f.selector]]
-                     .reject { |_, v| v.nil? }
+            details: details_for(f)
           )
         }
       )]
@@ -100,19 +133,27 @@ module Guardrails
     SUGGESTION = "compare baseline ↔ diff; accept the new baseline or fix the regression"
 
     def ratio_label(finding)
-      finding.mismatch_ratio.nil? ? "[diff present]" : "[#{(finding.mismatch_ratio * 100).round(2)}% mismatch]"
+      return "[#{(finding.mismatch_ratio * 100).round(2)}% mismatch]" unless finding.mismatch_ratio.nil?
+
+      finding.status ? "[#{finding.status}]" : "[diff present]"
+    end
+
+    def details_for(finding)
+      regions = finding.regions&.map { |r| "#{r[:x] || r["x"]},#{r[:y] || r["y"]} #{r[:w] || r["w"]}x#{r[:h] || r["h"]}" }
+      [["baseline", finding.baseline_path], ["current", finding.current_path], ["diff", finding.diff_path],
+       ["url", finding.url], ["selector", finding.selector], ["status", finding.status],
+       ["comment", finding.comment], ["regions", regions&.join("; ")]]
+        .reject { |_, v| v.nil? || v == "" } + Array(finding.extra_details)
     end
 
     def adapter
-      case @adapter_name
-      when :snap_diff
-        SnapDiff.new(
-          root: @root,
-          dir: Guardrails.configuration.visual_diff.snap_diff_dir
-        )
-      else
-        raise ArgumentError, "Unknown visual_diff adapter: #{@adapter_name.inspect}"
+      factory = self.class.adapter_factory(@adapter_name)
+      unless factory
+        raise ArgumentError,
+              "Unknown visual_diff adapter: #{@adapter_name.inspect}; registered: #{self.class.adapters.inspect}"
       end
+
+      factory.call(root: @root, config: Guardrails.configuration.visual_diff)
     end
 
     def coerce_adapter(value)
@@ -149,9 +190,14 @@ module Guardrails
         @output.puts "    #{@style.location("diff:     #{f.diff_path}")}" if f.diff_path
         @output.puts "    #{@style.location("url:      #{f.url}")}" if f.url
         @output.puts "    #{@style.location("selector: #{f.selector}")}" if f.selector
+        @output.puts "    #{@style.location("comment:  #{f.comment}")}" if f.comment
       end
     end
   end
 end
 
 require_relative "visual_diff/snap_diff"
+
+Guardrails::VisualDiff.register_adapter(:snap_diff) do |root:, config:|
+  Guardrails::VisualDiff::SnapDiff.new(root: root, dir: config.snap_diff_dir)
+end
