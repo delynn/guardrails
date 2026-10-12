@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **`visual_diff.adapter = :backstop` is now rejected when it's set.**
+  `:backstop` was listed as a known adapter before the BackstopJS
+  adapter existed (issue #15), so the setting was accepted and
+  `guardrails:audit` / `guardrails:visual:deep` then raised
+  `Unknown visual_diff adapter: :backstop`. The setter now raises its
+  usual "expected one of [:snap_diff]" error instead, and a spec keeps
+  the accepted list and the adapters that can actually be built in sync.
+
 ## [1.5.0] - 2026-09-30
 
 Emoji and Unicode-dingbat detection for `guardrails:icons`, plus a

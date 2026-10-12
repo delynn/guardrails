@@ -44,8 +44,13 @@ module Guardrails
       DEFAULT_ADAPTER       = :snap_diff
       DEFAULT_SNAP_DIFF_DIR = "doc/screenshots"
       DEFAULT_THRESHOLD     = 0.0 # any non-zero mismatch fails
-      KNOWN_ADAPTERS        = %i[snap_diff backstop].freeze
+      # Only adapters `VisualDiff#adapter` can actually build. `:backstop`
+      # joins when its adapter ships (issue #15); listing it early let
+      # `adapter = :backstop` pass here and then raise at audit time.
+      KNOWN_ADAPTERS        = %i[snap_diff].freeze
 
+      # `backstop_json` is reserved for the BackstopJS adapter and unused
+      # until it lands; kept so initializers that already set it still load.
       attr_accessor :enabled, :adapter, :snap_diff_dir, :backstop_json, :threshold
 
       def initialize
