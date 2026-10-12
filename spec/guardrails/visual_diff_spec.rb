@@ -145,6 +145,16 @@ RSpec.describe Guardrails::VisualDiff do
       audit = described_class.new(root: root, output: output, adapter: :not_yet_implemented)
       expect { audit.collect }.to raise_error(ArgumentError, /Unknown visual_diff adapter/)
     end
+
+    # Configuration and dispatch must agree: every adapter the setter
+    # accepts has to be buildable here. `:backstop` was listed in
+    # KNOWN_ADAPTERS without a branch and raised only at audit time.
+    Guardrails::Configuration::VisualDiffConfig::KNOWN_ADAPTERS.each do |name|
+      it "can build every adapter Configuration accepts (#{name})" do
+        audit = described_class.new(root: root, output: output, adapter: name)
+        expect { audit.collect }.not_to raise_error
+      end
+    end
   end
 
   describe "constructor coercion" do

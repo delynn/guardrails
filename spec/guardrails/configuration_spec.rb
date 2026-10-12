@@ -58,8 +58,12 @@ RSpec.describe Guardrails::Configuration do
     let(:vd) { Guardrails.configuration.visual_diff }
 
     it "accepts a known symbol" do
-      vd.adapter = :backstop
-      expect(vd.adapter).to eq(:backstop)
+      vd.adapter = :snap_diff
+      expect(vd.adapter).to eq(:snap_diff)
+    end
+
+    it "rejects :backstop until its adapter ships (issue #15)" do
+      expect { vd.adapter = :backstop }.to raise_error(ArgumentError, /Unknown visual_diff adapter :backstop/)
     end
 
     it "coerces a string to a symbol" do
