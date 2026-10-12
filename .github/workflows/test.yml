@@ -1,0 +1,52 @@
+name: Test
+
+# Runs the spec suite on every pull request and on pushes to main, and
+# builds the gem so packaging mistakes surface before a release tag
+# does. release.yml still runs the suite again at tag time.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer push to the same branch makes the in-flight run moot.
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+# Read-only: this workflow never writes to the repo or publishes. No
+# untrusted input (PR titles, bodies, branch names) is interpolated
+# into any `run:` block. Actions are pinned to the same commit SHAs as
+# release.yml; rotate both together.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: rspec (Ruby ${{ matrix.ruby }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.4 is the gemspec floor (required_ruby_version >= 3.4.0);
+        # 4.0 is the current stable line.
+        ruby: ["3.4", "4.0"]
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@c4e5b1316158f92e3d49443a9d58b31d25ac0f8f # v1 branch head as of 2026-05-11
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+
+      # Includes spec/integration/demo_app_spec.rb, which runs every
+      # detector against examples/demo's seeded violations.
+      - name: Run the test suite
+        run: bundle exec rspec
+
+      # Same build step release.yml runs before `gem push`.
+      - name: Build gem
+        run: gem build *.gemspec

@@ -132,7 +132,7 @@ The planned roadmap ended at V2. Running the gem on real codebases (Patchvault: 
 | Emoji + glyph icon detection | ✅ shipped (1.5.0) | `Guardrails::Icons::EmojiScan` catches emoji pictographs and Unicode-dingbat glyphs used as UI iconography — grapheme-cluster iteration (VS16 / ZWJ / flag / keycap count as one), range-first single-codepoint classification, per-file-type comment masking (Prism for Ruby, `<%# %>` for ERB, `//` `/* */` for JS/SCSS, `#` for YAML), `guardrails-ok: emoji` inline marker (first inline-escape convention in the gem), `allow_files` + `allow_chars` config, `SUGGEST=1` sprite-name hints. `guardrails:icons` also flipped to blocking — exit 1 on inline SVGs, unknown sprite refs, or emoji icons. |
 | Lookbook panel on the new data layer | not started | The auto-registered panel still renders from its own `ComponentReport`; it could render `Report::Finding`s and pick up suggestions for free. Icons findings could also flow through — the panel doesn't list icon findings today. |
 | Icons on the new data layer | not started | Icons stays outside `Report::Run` — its rake task calls `Icons.new(root:).run` directly. Migrating gets it into the TUI + HTML report for free but changes the rake shape; hold until there's demand. |
-| CI test workflow | not started | Specs only run inside the release workflow, on one Ruby. A PR-time matrix (3.4 + head) would catch floor regressions before tag time. |
+| CI test workflow | ✅ shipped | `.github/workflows/test.yml` runs `bundle exec rspec` (including the `examples/demo` integration spec) and `gem build` on every pull request and push to `main`, on Ruby 3.4 (the floor) and 4.0. Floor regressions and packaging mistakes surface on the PR instead of at tag time. |
 
 ---
 
