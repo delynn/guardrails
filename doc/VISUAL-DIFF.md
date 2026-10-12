@@ -61,6 +61,22 @@ With `enabled = true`, `rake guardrails:audit` always runs the visual-diff check
 
 Env always overrides Configuration.
 
+## Adapters from other gems
+
+`Guardrails.configuration.visual_diff.adapter` names a registered adapter. snap_diff is built in; other gems register theirs:
+
+```ruby
+Guardrails::VisualDiff.register_adapter(:browser) do |root:, config:|
+  MyAdapter.new(root: root) # #collect returns Guardrails::VisualDiff::Finding objects
+end
+```
+
+`config` is `Guardrails.configuration.visual_diff`. The name is checked when the adapter is built, so a host initializer can set `adapter = :browser` before the gem that registers it loads. An unregistered name fails with the registered ones listed.
+
+Besides the fields below, adapter findings can set `status` (`"changed"`, `"new"`, ...), `comment`, `regions` (`[{ x:, y:, w:, h: }]`) and `extra_details` (`[[label, value], ...]`). They show up as report details, and a finding with a `status` but no ratio is titled `[changed] scenario`. As with snap_diff, a finding with `mismatch_ratio: nil` always fails.
+
+[ui_guardrails-browser](https://github.com/meticulous/guardrails-browser) registers `:browser`, which reports unresolved items from its own capture and review loop.
+
 ## How the snap_diff adapter works
 
 The snap_diff-capybara gem commits baseline screenshots to git under `doc/screenshots/<name>.png` and, on test failure, writes a sibling `<name>.diff.png` (changed pixels in red) plus a `<name>.heatmap.diff.png` (variance density). Tests fail on baseline mismatches in CI, so the diff files are an artifact of "this regression slipped through to the artifact directory."

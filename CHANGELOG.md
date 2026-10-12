@@ -6,15 +6,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **`Guardrails::VisualDiff.register_adapter`.** Other gems can add a
+  visual-diff adapter: `register_adapter(:browser) { |root:, config:| MyAdapter.new(root: root) }`,
+  where the adapter's `#collect` returns `VisualDiff::Finding`s.
+  snap_diff registers itself the same way. The ui_guardrails-browser
+  gem uses it to put unresolved visual-review items into
+  `guardrails:audit`.
+- **Review fields on `VisualDiff::Finding`.** Optional `status`,
+  `comment`, `regions` and `extra_details`, passed through to the
+  report's details. A finding with no ratio but a status is titled
+  `[changed] ...` instead of `[diff present] ...`.
+
+### Changed
+
+- **`visual_diff.adapter` is checked when the adapter is built, not
+  when it's set.** An adapter from another gem may register after the
+  host's initializer sets the name, so the setter only rejects nil and
+  blank values now. `Configuration::VisualDiffConfig::KNOWN_ADAPTERS`
+  is gone; `Guardrails::VisualDiff.adapters` lists what's registered.
+
 ### Fixed
 
-- **`visual_diff.adapter = :backstop` is now rejected when it's set.**
+- **`visual_diff.adapter = :backstop` fails with a clear message.**
   `:backstop` was listed as a known adapter before the BackstopJS
-  adapter existed (issue #15), so the setting was accepted and
-  `guardrails:audit` / `guardrails:visual:deep` then raised
-  `Unknown visual_diff adapter: :backstop`. The setter now raises its
-  usual "expected one of [:snap_diff]" error instead, and a spec keeps
-  the accepted list and the adapters that can actually be built in sync.
+  adapter existed (issue #15), so the setting was accepted and then
+  raised a bare `Unknown visual_diff adapter: :backstop`. It's no longer
+  listed, and an unregistered name now fails with the registered ones:
+  `Unknown visual_diff adapter: :backstop; registered: [:snap_diff]`.
+- **Repeated detail labels survive in JSON.** `Report::Finding#to_h`
+  turned details into a hash with `to_h`, keeping only the last value
+  of a repeated label. A repeated label's values now become an array;
+  labels that appear once are unchanged.
 
 ## [1.5.0] - 2026-09-30
 
