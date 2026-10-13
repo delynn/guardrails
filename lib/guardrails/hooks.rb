@@ -72,20 +72,32 @@ module Guardrails
         @contributors.dup
       end
 
-      # Loads contributors shipped by other gems on the load path.
+      # Loads contributors shipped by other gems on the load path. One
+      # that fails to load is skipped, with the error on stderr.
       def load_contributors
-        Gem.find_files("guardrails/hook_contributors/*.rb").each { |path| require path }
+        Gem.find_files("guardrails/hook_contributors/*.rb").each do |path|
+          require path
+        rescue StandardError, ScriptError => e
+          warn "guardrails-hook: couldn't load #{path}: #{e.class}: #{e.message}"
+        end
       end
 
+      # Guardrails' own checks, then each contributor's. A contributor
+      # that raises is skipped, so the rest still reach the agent.
       def check(event)
         outcome = case event.kind
                   when :edit then on_edit(event)
                   when :stop then on_stop(event)
                   else Outcome.none
                   end
-        @contributors.each_value.reduce(outcome) do |result, contributor|
-          method = :"on_#{event.kind}"
-          contributor.respond_to?(method) ? result.merge(contributor.public_send(method, event)) : result
+        method = :"on_#{event.kind}"
+        @contributors.reduce(outcome) do |result, (name, contributor)|
+          next result unless contributor.respond_to?(method)
+
+          result.merge(contributor.public_send(method, event))
+        rescue StandardError, ScriptError => e
+          warn "guardrails-hook: #{name}: #{e.class}: #{e.message}"
+          result
         end
       end
 

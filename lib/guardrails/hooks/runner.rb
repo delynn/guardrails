@@ -41,7 +41,7 @@ module Guardrails
                           continued: adapter.continued?(input))
         Hooks.load_contributors
         Result.new(stdout: "#{JSON.generate(adapter.output(kind, Hooks.check(event)))}\n", stderr: "", exit_code: 0)
-      rescue StandardError => e
+      rescue StandardError, ScriptError => e
         Result.new(stdout: QUIET.stdout, stderr: "guardrails-hook: #{e.class}: #{e.message}\n", exit_code: 0)
       end
 

@@ -121,5 +121,19 @@ RSpec.describe Guardrails::Hooks do
     ensure
       described_class.unregister(:review)
     end
+
+    it "skips a contributor that raises and keeps everything else" do
+      write("app/views/pages/a.html.erb", %(<img src="x.png">\n))
+      broken = Object.new
+      def broken.on_stop(_event) = raise(LoadError, "cannot load such file -- vips")
+      described_class.register(:broken, broken)
+
+      outcome = nil
+      expect { outcome = described_class.check(event(:stop)) }.to output(/broken: LoadError: cannot load such file -- vips/).to_stderr
+      expect(outcome.block).to be true
+      expect(outcome.message).to include("image_alt")
+    ensure
+      described_class.unregister(:broken)
+    end
   end
 end
