@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-13
+
+Coding agents hear about the drift they introduce while they work:
+`rake guardrails:hooks:install` wires Claude Code, Codex, Cursor and
+Gemini CLI to a new `guardrails-hook` executable. Other gems can now
+add detectors to `guardrails:audit` and notes to those hooks.
+
 ### Added
 
 - **`Guardrails::Report::Detectors.register`.** Other gems add
@@ -30,6 +37,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **`Audit#scan_source` / `#covers?` and `A11yAudit#scan_source` / `#covers?`.**
   Scan one template, or a version of it that isn't on disk, without a
   full run.
+
+[1.7.0]: https://github.com/meticulous/guardrails/releases/tag/v1.7.0
 
 ## [1.6.0] - 2026-10-12
 
