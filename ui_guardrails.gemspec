@@ -27,8 +27,11 @@ Gem::Specification.new do |spec|
   spec.metadata["rubygems_mfa_required"] = "true"
 
   # Glob picks up the Lookbook panel partial under lib/guardrails/lookbook/views/.
-  spec.files = Dir["lib/**/*", "doc/**/*", "LICENSE", "README.md"]
+  spec.files = Dir["lib/**/*", "exe/*", "doc/**/*", "LICENSE", "README.md"]
   spec.require_paths = ["lib"]
+  # `guardrails-hook <agent> <event>`, called by coding agents' hooks.
+  spec.bindir = "exe"
+  spec.executables = ["guardrails-hook"]
 
   spec.add_dependency "railties", ">= 7.2"
   # Herb is a parser for HTML+ERB that exposes a real AST. Replaces the

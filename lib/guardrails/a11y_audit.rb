@@ -62,6 +62,18 @@ module Guardrails
       )]
     end
 
+    # One template's findings without printing. `content` scans a
+    # version that isn't on disk (see Audit#scan_source).
+    def scan_source(path, content = nil)
+      scan_file(Pathname(path).expand_path(@root), content)
+    end
+
+    # Whether a full run would scan this file.
+    def covers?(path)
+      relative = Pathname(path).expand_path(@root).relative_path_from(@root).to_s
+      SCAN_PATTERNS.any? { |pattern| File.fnmatch?(pattern, relative, File::FNM_PATHNAME) }
+    end
+
     private
 
     FRAMING = [
@@ -77,8 +89,8 @@ module Guardrails
         .uniq
     end
 
-    def scan_file(path)
-      content = File.read(path, encoding: Encoding::UTF_8)
+    def scan_file(path, content = nil)
+      content ||= File.read(path, encoding: Encoding::UTF_8)
       lines = content.lines
       result = ErbParser.parse(content)
       @current_document = result.document
