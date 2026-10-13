@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **`Guardrails::Report::Detectors.register`.** Other gems add
+  detectors to `guardrails:audit`: `register(:heuristics, MyDetector)`.
+  A registered detector runs after the built-ins when its
+  `.enabled?(env:)` says so, unless `SEVERITY=` is above its
+  `.max_severity`. It appears in the text report, the summary,
+  `FORMAT=html` and the TUI, and its `FORMAT=json` fragment goes under
+  a new `extensions` key, present only when one ran. It fails the audit
+  by its own `#failing?`. Registration checks the class implements the
+  whole interface (see the README).
+
 ## [1.6.0] - 2026-10-12
 
 Other gems can plug a visual-diff adapter into `guardrails:audit`.
