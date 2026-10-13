@@ -163,11 +163,11 @@ RSpec.describe Guardrails::Hooks::Runner do
       claude = JSON.parse(@root.join(".claude/settings.json").read)["hooks"]
       expect(claude["PostToolUse"].first).to include("matcher" => "Edit|Write|MultiEdit")
       expect(claude["Stop"].first["hooks"].first["command"])
-        .to eq(%(cd "$CLAUDE_PROJECT_DIR" && bundle exec guardrails-hook claude stop))
+        .to eq(%((cd "$CLAUDE_PROJECT_DIR" && bundle exec guardrails-hook claude stop) || echo '{}'))
 
       codex = JSON.parse(@root.join(".codex/hooks.json").read)["hooks"]
       expect(codex["PostToolUse"].first).to include("matcher" => "^apply_patch$")
-      expect(codex["Stop"].first["hooks"].first["command"]).to eq("bundle exec guardrails-hook codex stop")
+      expect(codex["Stop"].first["hooks"].first["command"]).to eq("(bundle exec guardrails-hook codex stop) || echo '{}'")
 
       cursor = JSON.parse(@root.join(".cursor/hooks.json").read)
       expect(cursor).to include("version" => 1)
@@ -178,12 +178,30 @@ RSpec.describe Guardrails::Hooks::Runner do
       expect(gemini["AfterAgent"].first["hooks"].first).to include("name" => "guardrails", "timeout" => 60_000)
     end
 
+    it "installs commands that answer {} when the hook can't start at all" do
+      described_class.new(root: @root, agents: ["claude"]).call
+      command = JSON.parse(@root.join(".claude/settings.json").read).dig("hooks", "Stop", 0, "hooks", 0, "command")
+
+      Dir.mktmpdir do |elsewhere|
+        # A branch without the gem: no Gemfile where the hook runs.
+        out, _err, status = Bundler.with_unbundled_env do
+          Open3.capture3({ "CLAUDE_PROJECT_DIR" => elsewhere }, "sh", "-c", command)
+        end
+        expect([out, status.exitstatus]).to eq(["{}\n", 0])
+      end
+
+      out, _err, status = Bundler.with_unbundled_env do
+        Open3.capture3({ "CLAUDE_PROJECT_DIR" => @root.join("missing").to_s }, "sh", "-c", command)
+      end
+      expect([out, status.exitstatus]).to eq(["{}\n", 0])
+    end
+
     it "calls the bare executable when the gem isn't in the Gemfile (sidecar)" do
       write("Gemfile", %(gem "rails"\n))
       described_class.new(root: @root, agents: ["codex"]).call
 
       codex = JSON.parse(@root.join(".codex/hooks.json").read)["hooks"]
-      expect(codex["Stop"].first["hooks"].first["command"]).to eq("guardrails-hook codex stop")
+      expect(codex["Stop"].first["hooks"].first["command"]).to eq("(guardrails-hook codex stop) || echo '{}'")
     end
   end
 end

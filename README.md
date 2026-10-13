@@ -318,7 +318,7 @@ It reports only what the agent introduced. A template is compared with its versi
 | Cursor | `.cursor/hooks.json` | `stop` and `sessionStart` only: Cursor's after-edit output doesn't reliably reach the model, so the stop check covers every changed template. Cursor also runs `.claude/settings.json` hooks; the hook recognises Cursor's input and doesn't run twice. |
 | Gemini CLI | `.gemini/settings.json` | `AfterTool` (`write_file`, `replace`), `AfterAgent`, `SessionStart` |
 
-The hook never breaks the agent's turn: if anything goes wrong it prints `{}`, explains on stderr, and exits 0. Other gems add to the same events with `Guardrails::Hooks.register(name, contributor)`, shipped at `lib/guardrails/hook_contributors/<name>.rb` so the hook finds them without booting the app.
+The hook never breaks the agent's turn: if anything goes wrong it prints `{}`, explains on stderr, and exits 0. The installed command ends in `|| echo '{}'`, so the same holds when the hook can't start at all. That happens on a branch whose Gemfile doesn't have the gem, since the agent's config usually isn't tracked by git and outlives the branch. Running the install again replaces an earlier install's hooks instead of adding new ones beside them. Other gems add to the same events with `Guardrails::Hooks.register(name, contributor)`, shipped at `lib/guardrails/hook_contributors/<name>.rb` so the hook finds them without booting the app.
 
 ---
 

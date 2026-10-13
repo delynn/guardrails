@@ -18,7 +18,8 @@ module Guardrails
 
       # `entries` maps an event name to the list entries to add under
       # `hooks.<event>` (each a Hash in the agent's own shape). An entry
-      # counts as present when one with the same command is there.
+      # counts as present when one with the same command is there; an
+      # older form of the same Guardrails hook is replaced.
       # `extra` merges top-level keys that must be set (Cursor's
       # `version`). Returns true when the file changed.
       def add(entries, extra: {})
@@ -32,7 +33,14 @@ module Guardrails
           existing = (hooks[event] ||= [])
           raise Error, "#{@path}: `hooks.#{event}` isn't a list" unless existing.is_a?(Array)
 
-          list.each { |entry| existing << entry unless commands(existing).include?(command(entry)) }
+          list.each do |entry|
+            wanted = command(entry)
+            next if commands(existing).include?(wanted)
+
+            identity = wanted.to_s[OURS]
+            remove(existing, identity) if identity
+            existing << entry
+          end
         end
         return false if JSON.generate(config) == before
 
@@ -42,6 +50,24 @@ module Guardrails
       end
 
       private
+
+      # An earlier install of the same hook, whatever its exact command:
+      # reinstalling replaces it rather than adding a second.
+      OURS = /guardrails-hook \w+ \w+/
+
+      # Takes out the hook with this identity and any group it leaves
+      # empty; the user's own hooks, in the same group or not, stay.
+      def remove(list, identity)
+        list.reject! do |entry|
+          next false unless entry.is_a?(Hash)
+          next true if entry["command"].to_s.include?(identity)
+          next false unless entry["hooks"].is_a?(Array)
+
+          before = entry["hooks"].size
+          entry["hooks"].reject! { |hook| hook.is_a?(Hash) && hook["command"].to_s.include?(identity) }
+          entry["hooks"].empty? && before.positive?
+        end
+      end
 
       def read
         return {} unless @path.file?

@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **Agent hooks fail open even when they can't start.** The command
+  `rake guardrails:hooks:install` writes now ends in `|| echo '{}'`. On
+  a branch whose Gemfile doesn't have the gem (the agent's config
+  usually isn't tracked by git, so it outlives the branch), the hook
+  used to error after every edit; it now says nothing. Reinstalling
+  replaces hooks from an earlier install, matched by
+  `guardrails-hook <agent> <event>`, and keeps the user's own hooks in
+  the same group.
+
 ## [1.7.0] - 2026-10-13
 
 Coding agents hear about the drift they introduce while they work:
