@@ -228,6 +228,23 @@ Works on the same line or the preceding line, in Ruby `#` comments, ERB `<%# %>`
 
 **No-fix policy**: emoji contribute to `guardrails:icons` exit code (part of Result#violations?). Dead icons stay reporting-only — deleting a file is a human decision.
 
+### Detectors from other gems
+
+Other gems add detectors to `guardrails:audit` with `Guardrails::Report::Detectors.register(name, klass)`. They run after the built-ins and show up in the text report, the summary, `FORMAT=json` (under `extensions.<name>`), `FORMAT=html` and the TUI. The class answers:
+
+| Method | Does |
+| --- | --- |
+| `.enabled?(env:)` | Whether this audit runs it, from the audit's env vars or the gem's own config |
+| `.max_severity` | The most serious severity it reports; `SEVERITY=` above that skips it without running it |
+| `.new(root:, output:, style:)` | Built like the built-in detectors |
+| `#run` | Returns its result and prints its own section to `output` |
+| `#categories(result)` | `Report::Category`s for the TUI, HTML and JSON findings |
+| `#summary_entry(result)` | A `Report::Summary::Entry` for the rollup |
+| `#to_h(result)` | Its `FORMAT=json` fragment |
+| `#failing?(result)` | Its own exit-code rule |
+
+Registration checks the class has all of these. Detectors only read what's already on disk; they never capture or call an API, because the TUI re-runs every detector on each `r`. ui_guardrails-browser registers its heuristic review this way.
+
 ---
 
 ## Output

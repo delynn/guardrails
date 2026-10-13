@@ -14,6 +14,7 @@ require_relative "../visual_diff"
 require_relative "summary"
 require_relative "finding"
 require_relative "severity"
+require_relative "detectors"
 require_relative "../configuration"
 
 module Guardrails
@@ -70,7 +71,8 @@ module Guardrails
             suggest: truthy?(env["SUGGEST"]), apply: truthy?(env["APPLY"]),
             axe_json: env["AXE_JSON"], visual_diff: visual_diff_on,
             similarity: similarity, patterns: patterns, classitis: classitis,
-            min_severity: Severity.parse(env["SEVERITY"]))
+            min_severity: Severity.parse(env["SEVERITY"]),
+            extensions: Detectors.enabled(env))
       end
 
       def self.truthy?(value)
@@ -82,11 +84,15 @@ module Guardrails
       # ANSI decisions against the terminal, or the report body prints
       # plain while the summary around it is colored. Pass nil to get
       # uncolored output (what JSON mode wants — the body is discarded).
+      #
+      # `extensions` maps names to registered detector classes (see
+      # Detectors); `from_env` passes the ones the environment enables.
       def initialize(root:, style: nil, suggest: false, apply: false,
                      axe_json: nil, visual_diff: false,
                      similarity: {}, patterns: {}, classitis: {},
-                     min_severity: Severity::DEFAULT)
+                     min_severity: Severity::DEFAULT, extensions: {})
         @min_severity = min_severity
+        @extension_classes = extensions
         @root = Pathname(root)
         @style = style
         @suggest = suggest
@@ -121,7 +127,20 @@ module Guardrails
         @a11y_deep = @a11y_deep_runner ? detect(@a11y_deep_runner) : []
         @visual_diff_runner = @visual_diff_on ? VisualDiff.new(**common) : nil
         @visual_diff = @visual_diff_runner ? detect(@visual_diff_runner) : []
+        # Registered detectors run last, and only when they can report
+        # something at or above the severity floor.
+        @extensions = @extension_classes.filter_map do |name, detector_class|
+          next unless wanted?(detector_class.max_severity)
+
+          detector = detector_class.new(**common)
+          [name.to_sym, detector, detect(detector)]
+        end
         self
+      end
+
+      # [name, detector, result] for each registered detector that ran.
+      def extensions
+        @extensions || []
       end
 
       # Severities this run didn't look at (empty by default).
@@ -168,12 +187,34 @@ module Guardrails
                 unit: "candidates", action: "consider extracting partials"),
           entry("class-itis", classitis.length, :suggestion,
                 unit: "clusters", action: "consider extracting component / @apply")
-        ]
+        ] + extensions.map { |_name, detector, result| detector.summary_entry(result) }
       end
 
-      # FORMAT=json payload. Shape is a public contract — unchanged
-      # since 1.0.0.
+      # FORMAT=json payload. Shape is a public contract: the keys below
+      # are unchanged since 1.0.0, and registered detectors only add an
+      # `extensions` key, present when one ran.
       def to_h
+        built_in.tap do |hash|
+          hash[:extensions] = extensions.to_h { |name, detector, result| [name, detector.to_h(result)] } if extensions.any?
+        end
+      end
+
+      # Exit-code contract: each detector fails on its own rule. Built-in
+      # errors and warnings fail on any finding, and so do similar
+      # partials; cross-codebase patterns and class-itis never fail.
+      # Deep a11y and visual diff fail when a finding crosses their
+      # threshold. Registered detectors decide for themselves.
+      def failing?
+        violations.any? || stimulus.violations? || similarity.any? ||
+          view_components.violations? || a11y.any? ||
+          (@a11y_deep_runner&.any_failing?(a11y_deep) || false) ||
+          (@visual_diff_runner&.any_failing?(visual_diff) || false) ||
+          extensions.any? { |_name, detector, result| detector.failing?(result) }
+      end
+
+      private
+
+      def built_in
         {
           summary: {
             violations: violations.length,
@@ -206,19 +247,6 @@ module Guardrails
           visual_diff: visual_diff.map(&:to_h)
         }
       end
-
-      # Exit-code contract: any error or warning fails; the suggestion-
-      # tier pattern / class-itis detectors don't. Deep a11y and visual
-      # diff only fail when a finding crosses their configured
-      # threshold, and are no-ops when not opted into.
-      def failing?
-        violations.any? || stimulus.violations? || similarity.any? ||
-          view_components.violations? || a11y.any? ||
-          (@a11y_deep_runner&.any_failing?(a11y_deep) || false) ||
-          (@visual_diff_runner&.any_failing?(visual_diff) || false)
-      end
-
-      private
 
       # Runs a detector and remembers the pair, so `categories` can ask
       # each detector to normalize its own result later — only
