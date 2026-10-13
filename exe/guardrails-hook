@@ -1,0 +1,13 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Called by a coding agent's hooks: `guardrails-hook <agent> <event>`,
+# with the agent's hook input on stdin. `rake guardrails:hooks:install`
+# writes the agent configuration that calls it.
+require "guardrails"
+require "guardrails/hooks/runner"
+
+result = Guardrails::Hooks::Runner.call(agent: ARGV[0], event: ARGV[1], stdin: $stdin.read, env: ENV)
+$stdout.write(result.stdout)
+$stderr.write(result.stderr)
+exit result.exit_code

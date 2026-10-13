@@ -97,6 +97,7 @@ APPLY=1 bundle exec rake guardrails:audit
 | `guardrails:tokens` | Parses your color and type-scale tokens (CSS vars / SCSS vars / Tailwind v3 config / Tailwind v4 `@theme`), reports hex literals in stylesheets that should reference a token. |
 | `guardrails:a11y:deep` | Reads axe-core JSON output and folds it into the unified report. Doesn't run axe itself (no Capybara / headless Chrome runtime deps) — point it at axe output your existing tooling produces. |
 | `guardrails:visual:deep` | Consumes screenshot-diff tool output (snap_diff-capybara today; BackstopJS in flight, [#15](https://github.com/meticulous/guardrails/issues/15)) and reports visual regressions. Same parse-only design — your existing test toolchain runs screenshots; Guardrails reports. |
+| `guardrails:hooks:install` | Adds Guardrails to coding agents' hooks (Claude Code, Codex, Cursor, Gemini CLI), so drift an agent introduces goes back to it while it works. See [Coding agent hooks](#coding-agent-hooks). |
 
 ---
 
@@ -289,6 +290,35 @@ The editor is `$GUARDRAILS_EDITOR`, then `$VISUAL`, then `$EDITOR`. VS Code-fami
 | `SIMILARITY_THRESHOLD=0.85` | Override the partial-similarity Jaccard threshold. |
 | `PATTERN_MIN_SIZE=8` / `PATTERN_MIN_OCCURRENCES=4` | Tune the cross-codebase pattern detector. |
 | `CLASSITIS_MIN_CLASSES=6` / `CLASSITIS_MIN_OCCURRENCES=4` | Tune the class-itis detector. |
+
+---
+
+## Coding agent hooks
+
+```bash
+bundle exec rake guardrails:hooks:install                  # Claude Code
+AGENT=claude,codex bundle exec rake guardrails:hooks:install
+AGENT=all bundle exec rake guardrails:hooks:install        # Claude Code, Codex, Cursor, Gemini CLI
+```
+
+This adds Guardrails to each agent's project hook config. It keeps whatever else is in that file and is safe to run again. Each hook calls `guardrails-hook <agent> <event>`, which runs only the parse-only checks: view drift (raw colours, Tailwind arbitrary values, inline styles, helper recommendations) and static a11y. A typical call takes a fraction of a second.
+
+It reports only what the agent introduced. A template is compared with its version at `HEAD`, so drift that was already there isn't the agent's to fix. Findings are matched by content, so a finding on a line that moved isn't counted as new.
+
+| When | What happens |
+| --- | --- |
+| After the agent edits a template | The drift it just introduced goes back to it as context. Nothing is blocked. |
+| When it tries to finish | New **errors** in any template changed since `HEAD` send it back to work, once per turn. Warnings alone don't. |
+| When a session starts | Notes from other gems (ui_guardrails-browser adds open visual-review rejections). |
+
+| Agent | Config | Notes |
+| --- | --- | --- |
+| Claude Code | `.claude/settings.json` | `PostToolUse`, `Stop`, `SessionStart` |
+| Codex | `.codex/hooks.json` | Same events. Edits arrive as patches, so file names come from the patch. Trust the hooks in `/hooks` once. |
+| Cursor | `.cursor/hooks.json` | `stop` and `sessionStart` only: Cursor's after-edit output doesn't reliably reach the model, so the stop check covers every changed template. Cursor also runs `.claude/settings.json` hooks; the hook recognises Cursor's input and doesn't run twice. |
+| Gemini CLI | `.gemini/settings.json` | `AfterTool` (`write_file`, `replace`), `AfterAgent`, `SessionStart` |
+
+The hook never breaks the agent's turn: if anything goes wrong it prints `{}`, explains on stderr, and exits 0. Other gems add to the same events with `Guardrails::Hooks.register(name, contributor)`, shipped at `lib/guardrails/hook_contributors/<name>.rb` so the hook finds them without booting the app.
 
 ---
 

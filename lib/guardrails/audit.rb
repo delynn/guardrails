@@ -123,6 +123,25 @@ module Guardrails
       end
     end
 
+    # One template's violations, above the severity floor, without
+    # printing. `content` scans a version that isn't on disk (the
+    # agent hooks compare a file with its version at HEAD). Doesn't
+    # check scan_paths or ignores; ask `covers?` first.
+    def scan_source(path, content = nil)
+      scan_file(Pathname(path).expand_path(@root), content).select do |v|
+        Report::Severity.include?(SEVERITY_FOR_TYPE.fetch(v.type, :warning), @min_severity)
+      end
+    end
+
+    # Whether a full run would scan this file: a template under one of
+    # the scan paths that isn't ignored.
+    def covers?(path)
+      path = Pathname(path).expand_path(@root)
+      return false unless path.to_s.end_with?(".html.erb")
+
+      scan_paths.any? { |dir| path.to_s.start_with?("#{@root.join(dir)}/") } && !ignored?(path)
+    end
+
     private
 
     def load_audit_config
@@ -164,8 +183,8 @@ module Guardrails
       end
     end
 
-    def scan_file(file)
-      content = File.read(file, encoding: Encoding::UTF_8)
+    def scan_file(file, content = nil)
+      content ||= File.read(file, encoding: Encoding::UTF_8)
       original_lines = content.lines
       ast_result = ErbParser.parse(content)
 

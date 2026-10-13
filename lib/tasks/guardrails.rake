@@ -134,4 +134,27 @@ namespace :guardrails do
     root = defined?(Rails) ? Rails.root : Pathname(Dir.pwd)
     Guardrails::Tokens.new(root: root).run
   end
+
+  namespace :hooks do
+    desc "Add Guardrails to coding agents' hooks (AGENT=claude,codex,cursor,gemini or all; default claude)"
+    task :install do
+      require "guardrails/hooks/installer"
+      root = defined?(Rails) ? Rails.root : Pathname(Dir.pwd)
+      agents = ENV.fetch("AGENT", "claude").split(",").map(&:strip).reject(&:empty?)
+      agents = Guardrails::Hooks::Adapters::ALL.keys if agents == ["all"]
+
+      begin
+        changes = Guardrails::Hooks::Installer.new(root: root, agents: agents).call
+      rescue Guardrails::Error => e
+        abort e.message
+      end
+
+      changes.each do |change|
+        puts "#{change.changed ? "Added hooks to" : "Already set up:"} #{change.path} (#{change.agent})"
+      end
+      agents = changes.map(&:agent)
+      puts "Codex runs project hooks once you trust them in /hooks." if agents.include?("codex")
+      puts "Cursor and Gemini CLI run project hooks in trusted folders only." if agents.intersect?(%w[cursor gemini])
+    end
+  end
 end

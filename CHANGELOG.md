@@ -17,6 +17,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   a new `extensions` key, present only when one ran. It fails the audit
   by its own `#failing?`. Registration checks the class implements the
   whole interface (see the README).
+- **Coding agent hooks.** `rake guardrails:hooks:install` (`AGENT=claude,codex,cursor,gemini`
+  or `all`) adds Guardrails to Claude Code, Codex, Cursor and Gemini CLI
+  hook configs, merged into what's there. The new `guardrails-hook`
+  executable reports the drift an agent just introduced after each
+  template edit, and sends it back to work, once, when it tries to
+  finish with new errors in templates changed since `HEAD`. Only the
+  parse-only checks run, and only on changed files; findings are
+  compared with the file at `HEAD` by content, so existing drift and
+  moved lines aren't reported. It fails open. Other gems add notes with
+  `Guardrails::Hooks.register`.
+- **`Audit#scan_source` / `#covers?` and `A11yAudit#scan_source` / `#covers?`.**
+  Scan one template, or a version of it that isn't on disk, without a
+  full run.
 
 ## [1.6.0] - 2026-10-12
 
