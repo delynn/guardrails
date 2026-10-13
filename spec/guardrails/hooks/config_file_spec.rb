@@ -37,6 +37,20 @@ RSpec.describe Guardrails::Hooks::ConfigFile do
     expect(JSON.parse(cursor.read)).to eq("version" => 1, "hooks" => { "stop" => [entry] })
   end
 
+  it "replaces an earlier install's form of the same hook, keeping the user's hooks beside it" do
+    theirs = { "type" => "command", "command" => "./bin/notify" }
+    old = { "type" => "command", "command" => "cd \"$CLAUDE_PROJECT_DIR\" && bundle exec guardrails-hook claude stop" }
+    path.dirname.mkpath
+    path.write(JSON.generate("hooks" => { "Stop" => [{ "hooks" => [theirs, old] }] }))
+    new_stop = { "hooks" => [{ "type" => "command", "command" => "(bundle exec guardrails-hook claude stop) || echo '{}'" }] }
+
+    file = described_class.new(path)
+    expect(file.add({ "Stop" => [new_stop] })).to be true
+    expect(file.add({ "Stop" => [new_stop] })).to be false
+
+    expect(JSON.parse(path.read)["hooks"]["Stop"]).to eq([{ "hooks" => [theirs] }, new_stop])
+  end
+
   it "refuses to rewrite a file it can't read as a JSON object" do
     path.dirname.mkpath
     path.write("{ not json")

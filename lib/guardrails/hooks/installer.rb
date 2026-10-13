@@ -20,7 +20,10 @@ module Guardrails
       def call
         @adapters.map do |adapter|
           path = @root.join(adapter.config_path)
-          command = ->(event) { "#{adapter.command_prefix}#{executable} #{adapter.name} #{event}" }
+          # Falls back to `{}`, the answer every agent reads as "nothing to
+          # say", when the hook can't start at all: a branch without the
+          # gem in its Gemfile, or a missing project directory.
+          command = ->(event) { "(#{adapter.command_prefix}#{executable} #{adapter.name} #{event}) || echo '{}'" }
           changed = ConfigFile.new(path).add(adapter.config_entries(command), extra: adapter.config_extra)
           Change.new(agent: adapter.name, path: path.relative_path_from(@root).to_s, changed: changed)
         end
