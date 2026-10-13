@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-12
+
+Other gems can plug a visual-diff adapter into `guardrails:audit`.
+ui_guardrails-browser uses it to fail the audit on visual-review
+changes nobody has approved yet. Findings carry review status,
+comments and changed regions, and repeated detail labels now survive
+in JSON.
+
 ### Added
 
 - **`Guardrails::VisualDiff.register_adapter`.** Other gems can add a
@@ -39,6 +47,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   turned details into a hash with `to_h`, keeping only the last value
   of a repeated label. A repeated label's values now become an array;
   labels that appear once are unchanged.
+
+[1.6.0]: https://github.com/meticulous/guardrails/releases/tag/v1.6.0
 
 ## [1.5.0] - 2026-09-30
 
