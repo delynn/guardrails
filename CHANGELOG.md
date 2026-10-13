@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-10-13
+
+Agent hooks installed by 1.7.0 error after every edit on a branch
+without the gem; reinstall with this version to fix them.
+
 ### Fixed
 
 - **Agent hooks fail open even when they can't start.** The command
@@ -16,6 +21,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   replaces hooks from an earlier install, matched by
   `guardrails-hook <agent> <event>`, and keeps the user's own hooks in
   the same group.
+
+[1.7.1]: https://github.com/meticulous/guardrails/releases/tag/v1.7.1
 
 ## [1.7.0] - 2026-10-13
 
