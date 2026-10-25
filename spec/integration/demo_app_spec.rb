@@ -8,6 +8,7 @@ require "guardrails/stimulus_audit"
 require "guardrails/partial_similarity"
 require "guardrails/view_component_audit"
 require "guardrails/a11y_audit"
+require "guardrails/views_audit"
 require "guardrails/lookbook/component_report"
 
 # End-to-end integration coverage against examples/demo. Asserting concrete
@@ -70,6 +71,18 @@ RSpec.describe "examples/demo" do
       rules = broken_findings.map(&:rule)
 
       expect(rules).to include(:image_alt, :button_name, :link_name)
+    end
+  end
+
+  describe "guardrails:audit (views)" do
+    it "reports the seeded drift in the Phlex view, which the ERB scanners cannot see" do
+      findings = Guardrails::ViewsAudit.new(root: root, output: StringIO.new).run
+
+      expect(findings.map(&:category).tally).to eq(
+        "views tailwind_arbitrary" => 2, "views raw_color" => 1, "views inline_style" => 1,
+        "views image_alt" => 1, "views button_name" => 1, "views link_name" => 1, "views input_label" => 1
+      )
+      expect(findings.map { |f| f.location.file }.uniq).to eq(["app/views/badges/show.rb"])
     end
   end
 

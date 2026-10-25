@@ -5,11 +5,12 @@ require "pathname"
 require "stringio"
 require_relative "../audit"
 require_relative "../a11y_audit"
+require_relative "../views_audit"
 
 module Guardrails
   module Hooks
     # The drift a coding agent introduced: what the parse-only checks
-    # (Audit, A11yAudit) find in a template now, minus what they find in
+    # (Audit, A11yAudit, ViewsAudit) find in a view now, minus what they find in
     # the same file at HEAD. Drift that was already there isn't the
     # agent's to fix unless someone asks, so the hooks never mention it.
     #
@@ -36,6 +37,7 @@ module Guardrails
         @root = Pathname(root).expand_path
         @audit = Audit.new(root: @root, output: StringIO.new)
         @a11y = A11yAudit.new(root: @root, output: StringIO.new)
+        @views = ViewsAudit.new(root: @root, output: StringIO.new)
       end
 
       # New findings in the given files (absolute or relative to root).
@@ -43,11 +45,11 @@ module Guardrails
         files.filter_map { |file| relative(file) }.uniq.flat_map { |file| introduced_in(file) }
       end
 
-      # Templates changed since HEAD, or untracked, relative to root.
-      # Empty outside a git repository.
+      # Views changed since HEAD, or untracked, relative to root. Empty
+      # outside a git repository.
       def changed_files
         (git("diff", "--name-only", "--relative", "HEAD") + git("ls-files", "--others", "--exclude-standard"))
-          .uniq.select { |file| file.end_with?(".html.erb") && @root.join(file).file? }
+          .uniq.select { |file| (file.end_with?(".html.erb") || @views.covers?(file)) && @root.join(file).file? }
       end
 
       private
@@ -74,6 +76,7 @@ module Guardrails
         categories = []
         categories += @audit.categories(@audit.scan_source(file, content)) if @audit.covers?(file)
         categories += @a11y.categories(@a11y.scan_source(file, content)) if @a11y.covers?(file)
+        categories += @views.categories(@views.scan_source(file, content)) if @views.covers?(file)
         categories.flat_map(&:findings).map do |finding|
           Item.new(file: file, line: finding.location&.line, category: finding.category, severity: finding.severity,
                    title: finding.title, suggestion: finding.suggestion, snippet: finding.snippet)

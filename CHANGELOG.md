@@ -6,6 +6,43 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+Phlex apps get the view audit: a parser-agnostic element model lets the
+view-drift and static a11y rules run over Ruby views, with ERB and
+ViewComponent inline templates as further sources.
+
+### Added
+
+- **`Guardrails::ViewsAudit`.** Reads views the ERB scanners cannot see
+  into `Guardrails::Views::Element` trees and runs the rules over them.
+  `Guardrails::Views::Source::Ruby` walks a file with Prism: Phlex
+  element calls, `tag.*` and `content_tag`, attributes with Phlex's
+  naming (`aria_label:`, nested `data:`/`aria:` hashes), same-file
+  constants and literal methods resolved, `plain` and block-value
+  strings as text. `Source::Erb` maps Herb's tree to the same model
+  (control flow walked through, unclosed and conditional open tags
+  handled) and `Source::ViewComponent` reads `erb_template` heredocs at
+  their lines in the `.rb` file. Rules: `tailwind_arbitrary`,
+  `raw_color`, `inline_style`, `image_alt`, `button_name`, `link_name`,
+  `input_label`, with the same severities and quiet conditions as
+  `Audit` and `A11yAudit`, plus three the parser can justify: a spread
+  of unseen attributes, an input nested in a label, and a computed id
+  all pass. Findings point at the attribute token or the element, are
+  categorised `views <rule>`, and honour `# guardrails-ok: <rule>
+  <reason>` on or above the line. Config under `guardrails.views`:
+  `sources` (default `[ruby]`; add `erb`, `view_component`),
+  `scan_paths` (defaults to `audit.scan_paths`), `allow_files.<rule>`,
+  `label_wrappers`. The audit's implicit and configured ignores apply.
+- **Demo:** `app/views/badges/show.rb`, a Phlex view with the same
+  seeded drift as `welcome/broken.html.erb`; `phlex-rails` joins the
+  demo Gemfile.
+
+### Changed
+
+- `FORMAT=json` gains a `views` array and `summary.views` count beside
+  `a11y`. Existing keys are unchanged.
+- The agent hooks report drift the agent introduced in Ruby views too,
+  and the stop check covers changed Ruby views.
+
 ## [1.7.1] - 2026-10-13
 
 Agent hooks installed by 1.7.0 error after every edit on a branch

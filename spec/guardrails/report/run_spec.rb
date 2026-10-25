@@ -63,7 +63,7 @@ RSpec.describe Guardrails::Report::Run do
   describe "#to_h" do
     it "keeps the FORMAT=json top-level shape" do
       expect(run.to_h.keys).to eq(
-        %i[summary violations stimulus similar_partials view_components a11y a11y_deep patterns classitis visual_diff]
+        %i[summary violations stimulus similar_partials view_components a11y views a11y_deep patterns classitis visual_diff]
       )
     end
 
@@ -86,9 +86,9 @@ RSpec.describe Guardrails::Report::Run do
     end
 
     it "gives every finding a title, and a location wherever there's a file to point at" do
-      expect(run.findings.length).to eq(20)
+      expect(run.findings.length).to eq(28)
       expect(run.findings).to all(have_attributes(title: a_string_matching(/\S/)))
-      expect(run.findings.reject { |f| f.locations.empty? }.length).to eq(20)
+      expect(run.findings.reject { |f| f.locations.empty? }.length).to eq(28)
     end
 
     it "carries the same suggestions the text report prints" do
@@ -135,7 +135,8 @@ RSpec.describe Guardrails::Report::Run do
 
     it "keeps only errors at :error — in findings, summary, JSON, and the printed body alike" do
       expect(errors_only.findings.map(&:severity).uniq).to eq([:error])
-      expect(errors_only.categories.map(&:name)).to eq(["raw_color", "a11y (static)", "tailwind_arbitrary"])
+      expect(errors_only.categories.map(&:name).first(3)).to eq(["raw_color", "a11y (static)", "tailwind_arbitrary"])
+      expect(errors_only.categories.map(&:name)).to include("views tailwind_arbitrary", "views input_label")
       expect(errors_only.summary_entries.reject { |e| e.count.zero? }.map(&:severity).uniq).to eq([:error])
       expect(errors_only.to_h[:summary]).to include(violations: 5, a11y: 3, stimulus_orphaned: 0, similar_partials: 0,
                                                     missing_previews: 0)
@@ -145,7 +146,7 @@ RSpec.describe Guardrails::Report::Run do
 
     it "drops only suggestions at :warning" do
       expect(no_suggestions.findings.map(&:severity).uniq).to eq(%i[error warning])
-      expect(no_suggestions.findings.length).to eq(18)
+      expect(no_suggestions.findings.length).to eq(26)
       expect(no_suggestions.similarity).to eq([])
       expect(no_suggestions.stimulus.orphaned).to eq(["missing"])
     end

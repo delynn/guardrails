@@ -1,0 +1,31 @@
+<%# A fixture for ViewGuardrails::Source::Erb: every ERB shape it reads. %>
+<div class="card <%= tone %>" id="<%= dom_id(card) %>" data-controller="card" <%= extra_attributes %>>
+  <span class="rounded w-[3px]
+    px-2">Hello</span>
+  <a href="/" style="color: #ff0000"><%= link_label %></a>
+  <img src="/x.png" alt="">
+  <% if open? %>
+    <button type="button">Open</button>
+  <% else %>
+    <button type="button" aria-label="Close"></button>
+  <% end %>
+  <%= render Card::Footer.new %>
+  <!-- a comment mentioning w-[13px] -->
+  <%# an ERB comment mentioning #abcdef %>
+  <label for="q">Search</label>
+  <input type="search" id="q">
+  <%= form_with(url: "/") do |f| %>
+    <input type="text" name="q" disabled>
+  <% end %>
+  <p <%= name %>="x">Named</p>
+  <button type="button"><!-- <%= hidden %> --></button>
+  <input type="text" id="n<% if long? %>-long<% end %><%# ignored %>" aria-label="Note">
+</div>
+<p>Trailing</p>
+<% if wide? %>
+  <section class="w-[8px]">
+<% else %>
+  <section class="w-[9px]">
+<% end %>
+</section>
+<footer class="w-[10px]">

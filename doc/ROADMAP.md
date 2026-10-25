@@ -96,6 +96,7 @@ This doc tracks shipped vs. planned scope and parks remaining unknowns. V0 + mos
 |---|---|---|
 | ViewComponent preview detection | ✅ shipped | |
 | ViewComponent slot validation | ✅ shipped | Known limit: code-only components (`def call`) flag declared slots as orphans |
+| Phlex / Ruby view coverage | ✅ unreleased | `Guardrails::ViewsAudit`: a parser-agnostic element model (`Guardrails::Views`) fed by Prism (Phlex, `tag.*`, `content_tag`), Herb (ERB) and ViewComponent `erb_template` heredocs; the drift and static a11y rules run once over the model. Migrating `Audit` and `A11yAudit` onto the same model would remove the double ERB report when `views.sources` includes `erb`. |
 | Component-shape similarity | ✅ shipped | n-gram Jaccard, default threshold 0.7. PartialSimilarity scans both `_*.html.erb` partials and `*_component.html.erb` VC templates |
 | Lookbook integration | ✅ shipped (0.5.0) | `Guardrails::Lookbook::ComponentReport` data API + Railtie auto-registers the `:guardrails` panel when Lookbook is loaded; partial ships inside the gem. Host can override the partial via standard view-path precedence. |
 | ERB-partial structural similarity | ✅ shipped | Same PartialSimilarity engine |

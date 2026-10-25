@@ -7,6 +7,7 @@ require_relative "../stimulus_audit"
 require_relative "../partial_similarity"
 require_relative "../view_component_audit"
 require_relative "../a11y_audit"
+require_relative "../views_audit"
 require_relative "../cross_codebase_patterns"
 require_relative "../class_itis"
 require_relative "../a11y_deep"
@@ -35,7 +36,7 @@ module Guardrails
       TRUTHY = %w[1 true yes].freeze
 
       attr_reader :violations, :stimulus, :similarity, :view_components,
-                  :a11y, :patterns, :classitis, :a11y_deep, :visual_diff, :min_severity
+                  :a11y, :views, :patterns, :classitis, :a11y_deep, :visual_diff, :min_severity
 
       # Builds a Run from the documented env vars (SUGGEST, APPLY,
       # AXE_JSON, VISUAL_DIFF*, SIMILARITY_THRESHOLD, PATTERN_*,
@@ -119,6 +120,7 @@ module Guardrails
                            else ViewComponentAudit::Result.new(missing_previews: [], orphan_slots: [])
                            end
         @a11y = detect(A11yAudit.new(**common))
+        @views = detect(ViewsAudit.new(**common, min_severity: @min_severity))
         @patterns = wanted?(:suggestion) ? detect(CrossCodebasePatterns.new(**common, **@pattern_opts)) : []
         @classitis = wanted?(:suggestion) ? detect(ClassItis.new(**common, **@classitis_opts)) : []
         @a11y_deep_runner = if @axe_json
@@ -175,7 +177,8 @@ module Guardrails
           entry("inline_style", count_type(:inline_style), :warning),
           entry("helper_recommended", count_type(:helper_recommended), :warning),
           entry("a11y (static)", a11y.length, :error),
-          entry("a11y (deep)", a11y_deep.length, :error),
+          entry("a11y (deep)", a11y_deep.length, :error)
+        ] + views_entries + [
           entry("stimulus orphaned", stimulus.orphaned.length, :warning),
           entry("stimulus dead", stimulus.dead.length, :warning),
           entry("missing previews", view_components.missing_previews.length, :warning),
@@ -206,13 +209,20 @@ module Guardrails
       # threshold. Registered detectors decide for themselves.
       def failing?
         violations.any? || stimulus.violations? || similarity.any? ||
-          view_components.violations? || a11y.any? ||
+          view_components.violations? || a11y.any? || views.any? ||
           (@a11y_deep_runner&.any_failing?(a11y_deep) || false) ||
           (@visual_diff_runner&.any_failing?(visual_diff) || false) ||
           extensions.any? { |_name, detector, result| detector.failing?(result) }
       end
 
       private
+
+      # One entry per views rule, named like its category.
+      def views_entries
+        Views::Rules.all.map do |rule|
+          entry("views #{rule.name}", views.count { |f| f.category == "views #{rule.name}" }, rule.severity)
+        end
+      end
 
       def built_in
         {
@@ -224,6 +234,7 @@ module Guardrails
             missing_previews: view_components.missing_previews.length,
             orphan_slots: view_components.orphan_slots.length,
             a11y: a11y.length,
+            views: views.length,
             a11y_deep: a11y_deep.length,
             patterns: patterns.length,
             classitis: classitis.length,
@@ -237,6 +248,7 @@ module Guardrails
             orphan_slots: view_components.orphan_slots.map(&:to_h)
           },
           a11y: a11y.map(&:to_h),
+          views: views.map(&:to_h),
           a11y_deep: a11y_deep.map(&:to_h),
           patterns: patterns.map { |p|
             { fingerprint: p.fingerprint, shape: p.shape, size: p.size, count: p.count, occurrences: p.occurrences.map(&:to_h) }

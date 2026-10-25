@@ -38,14 +38,14 @@ RSpec.describe Guardrails::TUI::Screen do
   it "shows totals by severity and the grouping in the title bar" do
     title = plain(render).first
 
-    expect(title).to include("20 findings", "x 8", "! 10", "i 2")
+    expect(title).to include("28 findings", "x 15", "! 11", "i 2")
     expect(title).to end_with("by category")
   end
 
   it "renders the rollup with severity headers and a position counter" do
     screen = plain(render).join("\n")
 
-    expect(screen).to include("x ERROR — 3 categories, 8 findings", "› x raw_color", "[auto-fix]", "1/10")
+    expect(screen).to include("x ERROR — 9 categories, 15 findings", "› x raw_color", "[auto-fix]", "1/17")
   end
 
   it "previews source around the highlighted finding, marking its line" do
@@ -74,7 +74,7 @@ RSpec.describe Guardrails::TUI::Screen do
     press(:tab, "G")
     screen = plain(render(height: 10)).join("\n")
 
-    expect(screen).to include("› ! app/javascript/controllers/dead_controller.js", "8/8")
+    expect(screen).to include("› ! app/javascript/controllers/dead_controller.js", "9/9")
     expect(screen).not_to include("broken.html.erb")
   end
 
