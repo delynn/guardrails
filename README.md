@@ -153,7 +153,7 @@ Then scans every other stylesheet for hex literals and reports drift, matching e
 
 - **Orphaned** — controller referenced in a view but no JS file defines it.
 - **Dead** — JS file exists but no view references it.
-- Picks up Ruby helper syntax: `tag.div(data: { controller: "foo" })`.
+- Picks up Ruby helper syntax: `tag.div(data: { controller: "foo" })`, and the Phlex spellings `div(data: { controller: "foo" })` and `div("data-controller": "foo")`. Ruby views under the views audit's scan paths are read along with the ERB templates; `stimulus.view_patterns` in `guardrails.yml` replaces the list.
 
 ### ViewComponent
 
@@ -384,6 +384,11 @@ guardrails:
     - app/components
   ignore:
     - app/views/layouts
+  stimulus:
+    # Optional. Templates the Stimulus audit reads for data-controller
+    # references, replacing the default ERB globs plus the views audit's
+    # Ruby views.
+    view_patterns: [app/views/**/*.html.erb, app/views/**/*.rb]
   views:
     # Parsers for the views the ERB scanners cannot read. ruby reads Phlex
     # classes and tag helpers (default); erb runs the same rules over ERB;

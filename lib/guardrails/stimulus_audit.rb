@@ -3,6 +3,7 @@
 require "pathname"
 require_relative "report/style"
 require_relative "report/finding"
+require_relative "views/config"
 
 module Guardrails
   class StimulusAudit
@@ -25,6 +26,10 @@ module Guardrails
     CONTROLLER_BASES = %w[app/javascript app/frontend].freeze
     CONTROLLER_GLOB = "**/*_controller.{js,ts}"
 
+    # Templates read for `data-controller` references, unless
+    # `guardrails.stimulus.view_patterns` names others. The Ruby views the
+    # views audit reads (Phlex classes, helpers; see Views::Config) are
+    # added, so a controller wired only from Ruby isn't reported dead.
     VIEW_PATTERNS = [
       "app/views/**/*.html.erb",
       "app/components/**/*.html.erb"
@@ -38,10 +43,15 @@ module Guardrails
     RUBY_DATA_CONTROLLER_PATTERN =
       /data:?\s*(?:=>)?\s*\{[^}]*?controller:?\s*(?:=>)?\s*["']([^"']+)["']/m
 
+    # The dashed key Phlex and tag helpers also accept:
+    # `div("data-controller": "foo")`, `"data-controller" => "foo"`.
+    RUBY_DASHED_CONTROLLER_PATTERN = /["']data-controller["']\s*(?::|=>)\s*["']([^"']+)["']/
+
     def initialize(root:, output: $stdout, style: nil)
       @root = Pathname(root)
       @output = output
       @style = style || Report::Style.new(io: output)
+      @views_config = Views::Config.new(root: @root)
     end
 
     def run
@@ -129,7 +139,7 @@ module Guardrails
     # `data: { controller: ... }` hash) falls back to a file-level
     # location rather than dropping out.
     def reference_locations(name)
-      VIEW_PATTERNS.flat_map { |pattern| Dir.glob(@root.join(pattern)) }.sort.flat_map do |path|
+      view_paths.sort.flat_map do |path|
         content = File.read(path, encoding: Encoding::UTF_8)
         next [] unless extract_names(content).include?(name)
 
@@ -166,9 +176,19 @@ module Guardrails
     end
 
     def collect_referenced_controllers
-      VIEW_PATTERNS.flat_map { |pattern| Dir.glob(@root.join(pattern)) }
-        .flat_map { |path| extract_referenced(Pathname(path)) }
-        .uniq
+      view_paths.flat_map { |path| extract_referenced(Pathname(path)) }.uniq
+    end
+
+    def view_paths
+      view_patterns.flat_map { |pattern| Dir.glob(@root.join(pattern)) }.uniq
+    end
+
+    def view_patterns
+      configured = @views_config.stimulus_view_patterns
+      return configured if configured.any?
+
+      ruby = @views_config.sources.include?("ruby") ? @views_config.scan_paths.map { |dir| "#{dir}/**/*.rb" } : []
+      VIEW_PATTERNS + ruby
     end
 
     def extract_referenced(file)
@@ -176,7 +196,7 @@ module Guardrails
     end
 
     def extract_names(content)
-      [DATA_CONTROLLER_PATTERN, RUBY_DATA_CONTROLLER_PATTERN].flat_map do |pattern|
+      [DATA_CONTROLLER_PATTERN, RUBY_DATA_CONTROLLER_PATTERN, RUBY_DASHED_CONTROLLER_PATTERN].flat_map do |pattern|
         content.scan(pattern).flat_map { |captures| captures[0].strip.split(/\s+/) }
       end
     end

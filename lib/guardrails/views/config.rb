@@ -47,6 +47,12 @@ module Guardrails
         Array(views["label_wrappers"])
       end
 
+      # `guardrails.stimulus.view_patterns`: the templates StimulusAudit
+      # reads instead of its defaults, when set.
+      def stimulus_view_patterns
+        Array((config.fetch("stimulus", {}) || {})["view_patterns"])
+      end
+
       private
 
       def views

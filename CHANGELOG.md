@@ -42,6 +42,12 @@ ViewComponent inline templates as further sources.
   `a11y`. Existing keys are unchanged.
 - The agent hooks report drift the agent introduced in Ruby views too,
   and the stop check covers changed Ruby views.
+- **The Stimulus audit reads Ruby views.** Along with its ERB globs it
+  reads the `.rb` files under the views audit's scan paths, and it
+  recognises the dashed key Phlex and tag helpers accept
+  (`div("data-controller": "menu")`), so a controller wired only from a
+  Phlex view is no longer reported dead. `guardrails.stimulus.view_patterns`
+  replaces the list of templates it reads.
 
 ## [1.7.1] - 2026-10-13
 
