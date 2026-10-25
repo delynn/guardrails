@@ -19,6 +19,10 @@ gem "importmap-rails"
 gem "view_component"
 gem "lookbook"
 
+# Phlex views live under app/views as Ruby classes. app/views/badges/
+# show.rb seeds the drift the Phlex-aware views audit reports.
+gem "phlex-rails"
+
 # Stimulus is referenced in `app/javascript/controllers/` so the
 # stimulus_audit has something to talk about. We don't ship a JS
 # bundler — importmap pins are enough for the demo's two files.

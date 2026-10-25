@@ -51,6 +51,8 @@ examples/demo/
 │   │   ├── welcome/
 │   │   │   ├── index.html.erb             clean baseline
 │   │   │   └── broken.html.erb            seeded violations (every detector)
+│   │   ├── badges/
+│   │   │   └── show.rb                    seeded violations, as a Phlex view
 │   │   └── shared/
 │   │       ├── _hero_card.html.erb        similar to ↓
 │   │       └── _hero_card_alt.html.erb    similar partial
@@ -78,6 +80,7 @@ examples/demo/
 |---|---|
 | `audit` view scan | inline_style, raw_color (×2 matching tokens, ×1 no match), tailwind_arbitrary, helper_recommended (on `<button><%= variant %>`) |
 | `audit` stimulus | 1 orphaned (`data-controller="missing"`), 1 dead (`dead_controller.js`) |
+| `audit` views (Phlex) | inline_style, raw_color, tailwind_arbitrary (×2), image_alt, button_name, link_name, input_label in `badges/show.rb` |
 | `audit` partial similarity | `_hero_card.html.erb` ↔ `_hero_card_alt.html.erb`, plus button vs icon_button components |
 | `audit` view components | `card_component` missing preview, `card_component` orphan slot |
 | `audit` a11y | image_alt, button_name, link_name in `welcome/broken.html.erb` |

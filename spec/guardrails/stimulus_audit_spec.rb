@@ -48,6 +48,27 @@ RSpec.describe Guardrails::StimulusAudit do
       expect(result.orphaned).to be_empty
     end
 
+    it "reads Ruby views the views audit reads, in both Phlex spellings" do
+      write_file "app/javascript/controllers/card_controller.js"
+      write_file "app/javascript/controllers/menu_controller.js"
+      write_file "app/components/card.rb", 'div(data: { controller: "card" }) { span("data-controller": "menu") }'
+
+      result = run_audit
+      expect(result.dead).to be_empty
+      expect(result.orphaned).to be_empty
+    end
+
+    it "reads only the templates guardrails.yml names under stimulus.view_patterns" do
+      write_file "guardrails.yml", "guardrails:\n  stimulus:\n    view_patterns: [app/templates/**/*.haml]\n"
+      write_file "app/javascript/controllers/foo_controller.js"
+      write_file "app/templates/x.haml", '%div{ "data-controller": "foo bar" }'
+      write_file "app/views/x.html.erb", '<div data-controller="unseen">x</div>'
+
+      result = run_audit
+      expect(result.dead).to be_empty
+      expect(result.orphaned).to eq(["bar"])
+    end
+
     it "splits multiple controllers in one data-controller attribute" do
       write_file "app/javascript/controllers/a_controller.js"
       write_file "app/javascript/controllers/b_controller.js"

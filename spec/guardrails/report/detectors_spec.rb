@@ -76,8 +76,8 @@ RSpec.describe Guardrails::Report::Detectors do
     payload = run("FAKE_HEURISTICS" => "1").to_h
 
     expect(payload[:extensions]).to eq(heuristics: { findings: [{ criterion: "H4.1", title: "Two primary buttons on one view" }] })
-    expect(payload.keys.first(10)).to eq(
-      %i[summary violations stimulus similar_partials view_components a11y a11y_deep patterns classitis visual_diff]
+    expect(payload.keys.first(11)).to eq(
+      %i[summary violations stimulus similar_partials view_components a11y views a11y_deep patterns classitis visual_diff]
     )
   end
 

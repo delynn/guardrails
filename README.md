@@ -16,7 +16,7 @@ AI-assisted Rails development is fast. Too fast. Without design guardrails in pl
 - Hex literals scattered across views that should reference a token
 - `bg-[#fa3]` arbitrary Tailwind values when a theme color already exists
 - Six near-duplicate "card" partials when one parameterized component would do
-- `<button>` elements with no accessible name
+- `<button>` elements with no accessible name, in ERB and in Phlex alike
 - Orphan ViewComponent slots and Stimulus controllers
 - The same 7-class utility soup pasted onto 30 buttons
 
@@ -115,6 +115,22 @@ Static AST walk over every `.html.erb` under `app/views/` and `app/components/` 
 | `helper_recommended` | `<button>` / `<a>` wrapping `<%= … %>` ERB output. Suggests `tag.button` / `link_to` / `button_to` for clean accessible names. Skips elements that already have `aria-label`. |
 | `image_alt` / `button_name` / `link_name` / `input_label` | The four most common static a11y misses (see [`doc/A11Y.md`](doc/A11Y.md)). |
 
+### Phlex views, tag helpers and inline templates (`guardrails:audit`)
+
+`Guardrails::ViewsAudit` reads the views the ERB scanners cannot: Phlex classes, `tag.*` and `content_tag` helper calls (ViewComponent `call` methods, view helpers), and, opt-in, ViewComponent `erb_template` heredocs. Each file becomes a parser-agnostic element tree ([Prism](https://github.com/ruby/prism) for Ruby, Herb for ERB) and the same rules run over it, so a rule never sees a parser node and a new template language is a new source:
+
+| Rule | Severity | Fires on |
+|---|---|---|
+| `views tailwind_arbitrary` | error | a static `class` token with an arbitrary value or property (`w-[13px]`, `[anchor-name:--x]`) |
+| `views raw_color` | error | a hex or `rgb()` literal in the static part of a colour-bearing attribute |
+| `views inline_style` | warning | any `style` attribute |
+| `views image_alt` / `button_name` / `link_name` / `input_label` | error | the same four static a11y rules as the ERB scan |
+
+- Phlex naming is understood: `aria_label:` → `aria-label`, `data: { controller: "x" }` → `data-controller`; a `style:` hash stays one unreadable attribute. Same-file constants (`class: BASE`) and argument-less methods with a literal body resolve to the literal. `plain "…"` and a block's string value count as text.
+- A rule stays quiet when it cannot prove anything: `**attrs`, computed content, a computed id, and an input nested in a `label` (or in a helper listed under `views.label_wrappers`) all pass.
+- Findings point at the attribute token or the element. `# guardrails-ok: <rule> <reason>` on the finding's line, or as a comment on the line above, silences one; `views.allow_files.<rule>` silences a file.
+- `views.sources` picks the parsers: `ruby` (the default), `erb` (the ERB rules run over the element model too, so expect both scanners to report the same ERB drift), `view_component` (`erb_template` heredocs, located at their line in the `.rb` file).
+
 ### Suggest mode and auto-fix
 
 - `SUGGEST=1 rake guardrails:audit` writes `doc/guardrails-suggestions-{TIMESTAMP}.md` — a markdown checklist with one `[ ]` per fixable finding, the rule that fired, and the proposed replacement (closest token by exact match, else near-match within a configurable channel-distance).
@@ -137,7 +153,7 @@ Then scans every other stylesheet for hex literals and reports drift, matching e
 
 - **Orphaned** — controller referenced in a view but no JS file defines it.
 - **Dead** — JS file exists but no view references it.
-- Picks up Ruby helper syntax: `tag.div(data: { controller: "foo" })`.
+- Picks up Ruby helper syntax: `tag.div(data: { controller: "foo" })`, and the Phlex spellings `div(data: { controller: "foo" })` and `div("data-controller": "foo")`. Ruby views under the views audit's scan paths are read along with the ERB templates; `stimulus.view_patterns` in `guardrails.yml` replaces the list.
 
 ### ViewComponent
 
@@ -301,7 +317,7 @@ AGENT=claude,codex bundle exec rake guardrails:hooks:install
 AGENT=all bundle exec rake guardrails:hooks:install        # Claude Code, Codex, Cursor, Gemini CLI
 ```
 
-This adds Guardrails to each agent's project hook config. It keeps whatever else is in that file and is safe to run again. Each hook calls `guardrails-hook <agent> <event>`, which runs only the parse-only checks: view drift (raw colours, Tailwind arbitrary values, inline styles, helper recommendations) and static a11y. A typical call takes a fraction of a second.
+This adds Guardrails to each agent's project hook config. It keeps whatever else is in that file and is safe to run again. Each hook calls `guardrails-hook <agent> <event>`, which runs only the parse-only checks: view drift (raw colours, Tailwind arbitrary values, inline styles, helper recommendations) and static a11y, over ERB templates and Phlex views alike. A typical call takes a fraction of a second.
 
 It reports only what the agent introduced. A template is compared with its version at `HEAD`, so drift that was already there isn't the agent's to fix. Findings are matched by content, so a finding on a line that moved isn't counted as new.
 
@@ -368,6 +384,25 @@ guardrails:
     - app/components
   ignore:
     - app/views/layouts
+  stimulus:
+    # Optional. Templates the Stimulus audit reads for data-controller
+    # references, replacing the default ERB globs plus the views audit's
+    # Ruby views.
+    view_patterns: [app/views/**/*.html.erb, app/views/**/*.rb]
+  views:
+    # Parsers for the views the ERB scanners cannot read. ruby reads Phlex
+    # classes and tag helpers (default); erb runs the same rules over ERB;
+    # view_component reads `erb_template` heredocs.
+    sources: [ruby]
+    # Defaults to the audit's scan_paths above.
+    scan_paths: [app/views, app/components]
+    # Silence one rule for whole files. For one site, prefer
+    # `# guardrails-ok: <rule> <reason>` on or above the line.
+    allow_files:
+      raw_color: [app/components/legacy_chart.rb]
+    # Helpers that render their block inside a <label>, so an input in the
+    # block counts as labelled.
+    label_wrappers: [labeled]
   tokens:
     # Where your color tokens live. The init task picks this up from
     # stack detection (CSS vars, SCSS, Tailwind v3/v4); edit if it
